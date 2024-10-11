@@ -99,7 +99,8 @@ class AdminViewMeta(type):
                         cls._default_view = p
 
                 # Wrap views
-                setattr(cls, p, _wrap_view(attr))
+                if p in cls.__dict__:
+                    setattr(cls, p, _wrap_view(attr))
 
 
 class BaseViewClass(object):
