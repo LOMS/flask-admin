@@ -3,6 +3,33 @@ Flask-Admin v1.6.1 with fixes.
 This is support-fork for flask-admin v1.6.1.
 It will contain one or more fixes, that are important for me and may be important to others.
 
+Fix for "broken" MRO
+----
+This code will not work as you may expect it.
+
+..  code-block:: python
+    from flask_admin import BaseView, expose
+
+    # Class `flask_admin.BaseView` has it's own original method `details_view` decorated with `@expose`.
+
+    class Mixin(BaseView):
+        """Mixin, that encapsulates some logic for use in composition with BaseView."""
+        ...
+
+    class MyAppBaseView(BaseView):
+        """Any base view in your app, that redefines exposed url from BaseView."""
+        @expose("/details")
+        def details_view(self):
+            return "Render some custom details."
+
+    class MyCompositionView(Mixin, MyAppBaseView):
+        """Composition that will fail to render 'some custom details'."""
+        ...
+
+Without fix, `MyCompositionView.details_view` - is `details_view` method from `BaseView`. In "normal" python, this should not be happening.
+
+After fix, `MyCompositeView.details_view` is `details_view` from `MyAppBaseView`, which is correct.
+
 
 Flask-Admin Origin Readme for v.1.6.1
 ===========
