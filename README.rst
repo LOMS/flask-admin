@@ -1,4 +1,10 @@
-Flask-Admin
+Flask-Admin v1.6.1 with fixes.
+===========
+This is support-fork for flask-admin v1.6.1.
+It will contain one or more fixes, that are important for me and may be important to others.
+
+
+Flask-Admin Origin Readme for v.1.6.1
 ===========
 
 The project was recently moved into its own organization. Please update your
