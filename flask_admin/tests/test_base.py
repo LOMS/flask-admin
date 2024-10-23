@@ -469,3 +469,106 @@ def check_endpoint():
 
     view = CustomView()
     assert view.endpoint == 'admin.customview'
+
+
+def test_mro_is_correct():
+    class FundamentalView(MockView):
+        @base.expose('/test/')
+        def test(self):
+            return "I render fundamental."
+
+    class Mixin(FundamentalView):
+        pass
+
+    class BaseView(FundamentalView):
+        @base.expose('/test/')
+        def test(self):
+            return "I render base."
+
+    class CompositeView(Mixin, BaseView):
+        pass
+
+    app = Flask(__name__)
+    admin = base.Admin(app, url='/')
+    admin.add_view(CompositeView(endpoint="composite_view"))
+
+    # Sanity check - make sure BaseView is higher in MRO than FundamentalView.
+    mro = {name: position for position, name in enumerate(CompositeView.__mro__)}
+    assert mro[BaseView] < mro[FundamentalView]
+
+    # Make sure CompositeView has it's "test" method from BaseView
+    assert CompositeView.test != FundamentalView.test
+    assert CompositeView.test == BaseView.test
+
+    client = app.test_client()
+    response = client.get("/composite_view/test/")
+    assert response.data.decode('utf-8') == 'I render base.'
+
+
+def test_expose_from_pure_mixins():
+    class FundamentalView(MockView):
+        @base.expose('/test/')
+        def test(self):
+            return "I render fundamental."
+
+        @base.expose('/info/')
+        def info(self):
+            return "I render info."
+
+    class Mixin:
+        @base.expose('/test/')
+        def test(self):
+            """This endpoint will override endpoint from base class."""
+            return "I render mixin."
+
+        @base.expose('/test2/')
+        def test2(self):
+            """This is new enpdoint, added by mixin."""
+            return "I render mixin 2."
+
+    class CompositeView(Mixin, FundamentalView):
+        pass
+
+    app = Flask(__name__)
+    admin = base.Admin(app, url='/')
+    admin.add_view(CompositeView(endpoint="composite_view"))  # noqa
+
+    client = app.test_client()
+
+    # Make sure mixin successfully overrides logic from base class.
+    response = client.get("/composite_view/test/")
+    assert response.status_code == 200
+    assert response.data.decode('utf-8') == 'I render mixin.'
+
+    # Make sure mixin is able to add more endpoints.
+    response = client.get("/composite_view/test2/")
+    assert response.status_code == 200
+    assert response.data.decode('utf-8') == 'I render mixin 2.'
+
+    # Make sure base expose works too.
+    response = client.get("/composite_view/info/")
+    assert response.status_code == 200
+    assert response.data.decode('utf-8') == 'I render info.'
+
+
+def test_exposed_method_is_deleted():
+    class CutView(MockView):
+        test = None
+
+    app = Flask(__name__)
+    admin = base.Admin(app, url='/')
+    admin.add_view(MockView(endpoint="original_view"))
+    admin.add_view(CutView(endpoint="cut_view"))
+    client = app.test_client()
+
+    # Sanity test - original view has exposed 'test' method.
+    response = client.get("/original_view/test/")
+    assert response.status_code == 200
+
+    # Sanity test - unknown endpoint will give 404 error.
+    response = client.get("/cut_view/totally_made_up_endpoint/")
+    assert response.status_code == 404
+
+    # Cut view no longer have 'test' method.
+    response = client.get("/cut_view/test/")
+    assert response.status_code == 404
